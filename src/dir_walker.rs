@@ -72,3 +72,58 @@ pub fn get_dir_walker(root: PathBuf) -> impl Iterator<Item = DirEntry> {
         .filter_map(|e| e.ok())
         .filter(|e| is_source_file(e))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(unix)]
+    fn system_headers_not_coverable() {
+        assert!(!is_coverable_file_path(
+            "/usr/include/c++/9/iostream",
+            "/home/ferris/rust/project",
+            "/home/ferris/rust/project/target"
+        ));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn system_headers_not_coverable() {
+        assert!(!is_coverable_file_path(
+            "C:/Program Files/Visual Studio/include/c++/9/iostream",
+            "C:/User/ferris/rust/project",
+            "C:/User/ferris/rust/project/target"
+        ));
+    }
+
+    #[test]
+    fn basic_coverable_checks() {
+        assert!(is_coverable_file_path(
+            "/foo/src/lib.rs",
+            "/foo",
+            "/foo/target"
+        ));
+        assert!(!is_coverable_file_path(
+            "/foo/target/lib.rs",
+            "/foo",
+            "/foo/target"
+        ));
+    }
+
+    #[test]
+    fn is_hidden_check() {
+        // From issue#682
+        let hidden_root = Path::new("/home/.jenkins/project/");
+        let visible_root = Path::new("/home/jenkins/project/");
+
+        let hidden_file = Path::new(".cargo/src/hello.rs");
+        let visible_file = Path::new("src/hello.rs");
+
+        assert!(is_hidden(&hidden_root.join(hidden_file), &hidden_root));
+        assert!(is_hidden(&visible_root.join(hidden_file), &visible_root));
+
+        assert!(!is_hidden(&hidden_root.join(visible_file), &hidden_root));
+        assert!(!is_hidden(&visible_root.join(visible_file), &visible_root));
+    }
+}

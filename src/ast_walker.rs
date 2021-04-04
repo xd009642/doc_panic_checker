@@ -178,7 +178,7 @@ impl AstWalker {
         for method in imp
             .items
             .iter()
-            .filter(|x| matches!(x, ImplItem::Method(_)))
+            .filter(|x| matches!(x, ImplItem::Method(m) if is_public(&m.vis)))
         {
             let method = if let ImplItem::Method(m) = method {
                 m
@@ -251,5 +251,51 @@ mod tests {
         let panik = ast_walker.process();
         assert_eq!(panik.len(), 1);
         assert_eq!(panik[0].ident, "foobar");
+
+        let naughty_code = r#"
+            pub mod baz {
+                /// Nothing to see here 
+                pub fn foobar() {
+                    panic!("mwhahahahaha");
+                }
+            }"#
+        .to_string();
+
+        let ast_walker = AstWalker::new_with_source(PathBuf::from("bad_code.rs"), naughty_code);
+
+        let panik = ast_walker.process();
+        assert_eq!(panik.len(), 1);
+        assert_eq!(panik[0].ident, "baz::foobar");
+    }
+
+    #[test]
+    fn no_panics() {
+        let good_code = r#"
+                /// Nothing to see here 
+                pub fn foobar() {
+                    println!("No really");
+                }
+
+                pub struct Foo;
+                impl Foo {
+                    pub fn yo_yo() -> i32 {
+                        2
+                    }
+
+                    fn secret() {
+                        panic!("I'm a secret panic you won't see me user");
+                    }
+                }
+
+                pub trait Urgh {
+                    fn murghhh(&self) {
+                        println!("You should implement me ya know");
+                    }
+                }
+            "#
+        .to_string();
+
+        let ast_walker = AstWalker::new_with_source(PathBuf::from("good.rs"), good_code);
+        assert!(ast_walker.process().is_empty());
     }
 }
