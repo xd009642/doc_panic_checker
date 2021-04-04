@@ -13,7 +13,7 @@ pub struct AstWalker {
 }
 
 fn contains_panicky_words(content: &str) -> bool {
-    let panicky_words = vec!["panic", "unwrap", "expect", "todo"];
+    let panicky_words = vec!["panic", "unwrap", "expect", "todo", "unimplemented"];
     content
         .lines()
         .filter(|x| !x.trim_start().starts_with("///"))
