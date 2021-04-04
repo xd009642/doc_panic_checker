@@ -12,11 +12,12 @@ pub struct AstWalker {
     source_code: String,
 }
 
-fn contains_panicky_words(content: &str) -> bool {
-    let panicky_words = vec!["panic", "unwrap", "expect", "todo", "unimplemented"];
-    content
+fn contains_panicky_words(source_code: &str) -> bool {
+    let panicky_words = &["panic", "unwrap", "expect", "todo", "unimplemented"];
+    source_code
         .lines()
-        .filter(|x| !x.trim_start().starts_with("///"))
+        .map(|x| x.trim_start())
+        .filter(|trimmed| !trimmed.starts_with("///") || !trimmed.starts_with("//"))
         .any(|x| panicky_words.iter().any(|panik| x.contains(panik)))
 }
 
