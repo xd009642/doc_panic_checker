@@ -3,17 +3,28 @@ use crate::dir_walker::get_dir_walker;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
+use structopt::{clap::arg_enum, StructOpt};
 use tracing::{info, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
 mod ast_walker;
 mod dir_walker;
 
+arg_enum! {
+#[derive(Copy, Debug, Clone, Eq, PartialEq)]
+pub enum Color {
+    Auto,
+    Always,
+    Never,
+}
+}
+
 #[derive(Clone, Debug, StructOpt)]
 pub struct Config {
     #[structopt(long = "manifest-path")]
     manifest_path: Option<PathBuf>,
+    #[structopt(long = "color")]
+    color: Color,
 }
 
 pub fn get_analysis(root: PathBuf) {
@@ -36,7 +47,7 @@ fn analyse_package(path: &Path, root: &Path) {
     }
 }
 
-pub fn setup_logging() {
+pub fn setup_logging(color: Color) {
     let base_exceptions = |env: EnvFilter| {
         env.add_directive("doc_panic_checker=info".parse().unwrap())
             .add_directive(LevelFilter::INFO.into())
@@ -54,16 +65,19 @@ pub fn setup_logging() {
         }
         _ => base_exceptions(EnvFilter::from_env("RUST_LOG")),
     };
+    let with_colour = color != Color::Never;
 
     tracing_subscriber::FmtSubscriber::builder()
         .with_max_level(tracing::Level::ERROR)
         .with_env_filter(filter)
+        .with_ansi(with_colour)
+        .without_time()
         .init();
 }
 
 fn main() {
-    setup_logging();
     let config = Config::from_args();
+    setup_logging(config.color);
     let root = config
         .manifest_path
         .map(|x| x.canonicalize().ok())

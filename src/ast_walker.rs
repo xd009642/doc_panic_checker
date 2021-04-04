@@ -29,7 +29,7 @@ impl AstWalker {
     pub fn new(filename: PathBuf) -> io::Result<Self> {
         let mut file = File::open(&filename)?;
         let mut source_code = String::new();
-        let res = file.read_to_string(&mut source_code);
+        file.read_to_string(&mut source_code)?;
         Ok(Self {
             filename,
             source_code,
