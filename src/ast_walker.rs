@@ -56,7 +56,7 @@ impl AstWalker {
                     self.process_trait(i, namespace.as_ref())
                 }
                 Item::Impl(ref i) => self.process_impl(i, namespace.as_ref()),
-                Item::Macro(ref i) => {}
+                Item::Macro(ref _i) => {}
                 Item::Macro2(ref i) if is_public(&i.vis) => {}
                 _ => {}
             }
