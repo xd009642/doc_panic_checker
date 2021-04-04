@@ -1,10 +1,10 @@
 use crate::ast_walker::AstWalker;
 use crate::dir_walker::get_dir_walker;
-use std::fs::File;
-use std::io::Read;
+
+
 use std::path::{Path, PathBuf};
 use structopt::{clap::arg_enum, StructOpt};
-use tracing::{info, warn};
+use tracing::{info};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
 mod ast_walker;
@@ -36,7 +36,7 @@ pub fn get_analysis(root: PathBuf) {
 
 /// Analyses a package of the target crate.
 fn analyse_package(path: &Path, root: &Path) {
-    if let Some(file) = path.to_str() {
+    if let Some(_file) = path.to_str() {
         let skip_cause_test = path.starts_with(root.join("tests"));
         let skip_cause_example = path.starts_with(root.join("examples"));
         if !(skip_cause_test || skip_cause_example) {

@@ -2,7 +2,7 @@ use proc_macro2::Span;
 use quote::ToTokens;
 use std::fs::File;
 use std::io::{self, Read};
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use syn::spanned::Spanned;
 use syn::*;
 use tracing::warn;
