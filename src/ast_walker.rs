@@ -2,7 +2,7 @@ use proc_macro2::Span;
 use quote::ToTokens;
 use std::fs::File;
 use std::io::{self, Read};
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use syn::spanned::Spanned;
 use syn::*;
 use tracing::warn;
@@ -30,10 +30,14 @@ impl AstWalker {
         let mut file = File::open(&filename)?;
         let mut source_code = String::new();
         file.read_to_string(&mut source_code)?;
-        Ok(Self {
+        Ok(Self::new_with_source(filename, source_code))
+    }
+
+    fn new_with_source(filename: PathBuf, source_code: String) -> Self {
+        Self {
             filename,
             source_code,
-        })
+        }
     }
 
     pub fn process(&self) {
@@ -174,4 +178,24 @@ impl AstWalker {
 
 fn is_public(visibility: &Visibility) -> bool {
     matches!(visibility, &Visibility::Public(_))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn undocumented_panics() {
+        let naughty_code = r#"
+                /// Nothing to see here 
+                pub fn foobar() {
+                    panic!("mwhahahahaha");
+                }
+            "#
+        .to_string();
+
+        let ast_walker = AstWalker::new_with_source(PathBuf::from("bad_code.rs"), naughty_code);
+
+        ast_walker.process();
+    }
 }

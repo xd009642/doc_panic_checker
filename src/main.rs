@@ -1,10 +1,9 @@
 use crate::ast_walker::AstWalker;
 use crate::dir_walker::get_dir_walker;
 
-
 use std::path::{Path, PathBuf};
 use structopt::{clap::arg_enum, StructOpt};
-use tracing::{info};
+use tracing::info;
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
 mod ast_walker;
@@ -23,7 +22,7 @@ pub enum Color {
 pub struct Config {
     #[structopt(long = "manifest-path")]
     manifest_path: Option<PathBuf>,
-    #[structopt(long = "color")]
+    #[structopt(long = "color", default_value = "auto")]
     color: Color,
 }
 
@@ -71,6 +70,7 @@ pub fn setup_logging(color: Color) {
         .with_max_level(tracing::Level::ERROR)
         .with_env_filter(filter)
         .with_ansi(with_colour)
+        .with_target(false)
         .without_time()
         .init();
 }
