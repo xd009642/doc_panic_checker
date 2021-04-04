@@ -1,9 +1,8 @@
 use crate::ast_walker::AstWalker;
 use crate::dir_walker::get_dir_walker;
-
 use std::path::{Path, PathBuf};
 use structopt::{clap::arg_enum, StructOpt};
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
 mod ast_walker;
@@ -40,7 +39,13 @@ fn analyse_package(path: &Path, root: &Path) {
         let skip_cause_example = path.starts_with(root.join("examples"));
         if !(skip_cause_test || skip_cause_example) {
             if let Ok(walker) = AstWalker::new(path.to_path_buf()) {
-                walker.process();
+                let bad_panics = walker.process();
+                if !bad_panics.is_empty() {
+                    warn!("Potentially undocumented panics in {}", path.display());
+                }
+                for panik in &bad_panics {
+                    println!("\t{}", panik);
+                }
             }
         }
     }

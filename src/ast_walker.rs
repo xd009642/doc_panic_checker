@@ -1,15 +1,33 @@
 use proc_macro2::Span;
 use quote::ToTokens;
+use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::PathBuf;
 use syn::spanned::Spanned;
 use syn::*;
-use tracing::warn;
 
+#[derive(Clone)]
 pub struct AstWalker {
     filename: PathBuf,
     source_code: String,
+}
+
+pub struct PanicLocation {
+    ident: String,
+    span: Span,
+}
+
+impl fmt::Display for PanicLocation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} {}:{}",
+            self.ident,
+            self.span.start().line,
+            self.span.end().line
+        )
+    }
 }
 
 fn contains_panicky_words(source_code: &str) -> bool {
@@ -40,26 +58,37 @@ impl AstWalker {
         }
     }
 
-    pub fn process(&self) {
+    pub fn process(&self) -> Vec<PanicLocation> {
+        let mut result = vec![];
         if contains_panicky_words(&self.source_code) {
             if let Ok(file) = parse_file(&self.source_code) {
-                self.process_items(&file.items, None);
+                self.process_items(&file.items, None, &mut result);
             }
         }
+        result
     }
 
-    fn process_items(&self, items: &[Item], namespace: Option<String>) {
+    fn process_items(
+        &self,
+        items: &[Item],
+        namespace: Option<String>,
+        result: &mut Vec<PanicLocation>,
+    ) {
         for item in items.iter() {
             if !self.span_has_panics(item.span()) {
                 continue;
             }
             match *item {
-                Item::Mod(ref i) if is_public(&i.vis) => self.process_module(i),
-                Item::Fn(ref i) if is_public(&i.vis) => self.process_fn(i, namespace.as_ref()),
-                Item::Trait(ref i) if is_public(&i.vis) => {
-                    self.process_trait(i, namespace.as_ref())
+                Item::Mod(ref i) if is_public(&i.vis) => {
+                    self.process_module(i, namespace.as_ref(), result)
                 }
-                Item::Impl(ref i) => self.process_impl(i, namespace.as_ref()),
+                Item::Fn(ref i) if is_public(&i.vis) => {
+                    self.process_fn(i, namespace.as_ref(), result)
+                }
+                Item::Trait(ref i) if is_public(&i.vis) => {
+                    self.process_trait(i, namespace.as_ref(), result)
+                }
+                Item::Impl(ref i) => self.process_impl(i, namespace.as_ref(), result),
                 Item::Macro(ref _i) => {}
                 Item::Macro2(ref i) if is_public(&i.vis) => {}
                 _ => {}
@@ -67,13 +96,28 @@ impl AstWalker {
         }
     }
 
-    fn process_module(&self, module: &ItemMod) {
+    fn process_module(
+        &self,
+        module: &ItemMod,
+        namespace: Option<&String>,
+        result: &mut Vec<PanicLocation>,
+    ) {
         if let Some(items) = &module.content {
-            self.process_items(&items.1, Some(module.ident.to_string()));
+            let ident = if let Some(namespace) = namespace {
+                format!("{}::{}", namespace, module.ident)
+            } else {
+                format!("{}", module.ident)
+            };
+            self.process_items(&items.1, Some(ident), result);
         }
     }
 
-    fn process_fn(&self, func: &ItemFn, namespace: Option<&String>) {
+    fn process_fn(
+        &self,
+        func: &ItemFn,
+        namespace: Option<&String>,
+        result: &mut Vec<PanicLocation>,
+    ) {
         if !self.span_has_panics(func.block.span()) {
             return;
         }
@@ -83,21 +127,24 @@ impl AstWalker {
         } else {
             func.sig.ident.to_string()
         };
-        self.check_docs(&comment, &ident, func.span());
+        self.check_docs(&comment, &ident, func.span(), result);
     }
 
-    fn check_docs(&self, comment: &str, ident: &str, span: Span) {
+    fn check_docs(&self, comment: &str, ident: &str, span: Span, result: &mut Vec<PanicLocation>) {
         if !warns_about_panics(comment) {
-            warn!("In span: {}:{}", span.start().line, span.end().line);
-            warn!(
-                "Function {} in {} potentially has an undocumented panic",
-                ident,
-                self.filename.display()
-            );
+            result.push(PanicLocation {
+                span: span,
+                ident: ident.to_string(),
+            });
         }
     }
 
-    fn process_trait(&self, item_trait: &ItemTrait, namespace: Option<&String>) {
+    fn process_trait(
+        &self,
+        item_trait: &ItemTrait,
+        namespace: Option<&String>,
+        result: &mut Vec<PanicLocation>,
+    ) {
         for default_method in item_trait
             .items
             .iter()
@@ -118,11 +165,16 @@ impl AstWalker {
                 format!("{}::{}", item_trait.ident, method.sig.ident)
             };
 
-            self.check_docs(&comment, &ident, method.span());
+            self.check_docs(&comment, &ident, method.span(), result);
         }
     }
 
-    fn process_impl(&self, imp: &ItemImpl, namespace: Option<&String>) {
+    fn process_impl(
+        &self,
+        imp: &ItemImpl,
+        namespace: Option<&String>,
+        result: &mut Vec<PanicLocation>,
+    ) {
         for method in imp
             .items
             .iter()
@@ -144,7 +196,7 @@ impl AstWalker {
                 format!("{}::{}", self_ty, method.sig.ident)
             };
 
-            self.check_docs(&comment, &ident, method.span());
+            self.check_docs(&comment, &ident, method.span(), result);
         }
     }
 
@@ -196,6 +248,8 @@ mod tests {
 
         let ast_walker = AstWalker::new_with_source(PathBuf::from("bad_code.rs"), naughty_code);
 
-        ast_walker.process();
+        let panik = ast_walker.process();
+        assert_eq!(panik.len(), 1);
+        assert_eq!(panik[0].ident, "foobar");
     }
 }
