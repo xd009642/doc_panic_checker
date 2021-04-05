@@ -23,7 +23,7 @@ impl fmt::Display for PanicLocation {
         write!(
             f,
             "{} {}:{}",
-            self.ident,
+            self.ident.replace(" ", ""),
             self.span.start().line,
             self.span.end().line
         )
