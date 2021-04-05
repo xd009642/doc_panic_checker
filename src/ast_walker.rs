@@ -40,6 +40,8 @@ fn contains_panicky_words(source_code: &str) -> bool {
 }
 
 fn warns_about_panics(comment: &str) -> bool {
+    // As per the Rust API Guidelines for Documentation 'Panic conditions should be documented in a
+    // "Panics" section'. Because of this I'm only going to look for the word panic
     !comment.is_empty() && comment.contains("panic")
 }
 

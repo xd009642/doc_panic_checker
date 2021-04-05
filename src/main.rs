@@ -1,5 +1,6 @@
 use crate::ast_walker::AstWalker;
 use crate::dir_walker::get_dir_walker;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use structopt::{clap::arg_enum, StructOpt};
 use tracing::{info, warn};
@@ -80,9 +81,19 @@ pub fn setup_logging(color: Color) {
         .init();
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_args();
     setup_logging(config.color);
+
+    if config
+        .manifest_path
+        .as_ref()
+        .map(|x| x.file_name() != Some(OsStr::new("Cargo.toml")))
+        .unwrap_or(false)
+    {
+        Err("The manifest-path must be a path to a Cargo.toml file")?;
+    }
+
     let root = config
         .manifest_path
         .map(|x| x.canonicalize().ok())
@@ -91,4 +102,5 @@ fn main() {
         .unwrap_or_default();
 
     get_analysis(root);
+    Ok(())
 }
