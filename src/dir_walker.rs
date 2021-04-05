@@ -76,6 +76,7 @@ pub fn get_dir_walker(root: PathBuf) -> impl Iterator<Item = DirEntry> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     #[test]
     #[cfg(unix)]
@@ -125,5 +126,21 @@ mod tests {
 
         assert!(!is_hidden(&hidden_root.join(visible_file), &hidden_root));
         assert!(!is_hidden(&visible_root.join(visible_file), &visible_root));
+    }
+
+    #[test]
+    fn walk_own_project() {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let project_files = &["src/main.rs", "src/dir_walker.rs", "src/ast_walker.rs"];
+        let project_files = project_files
+            .iter()
+            .map(|p| manifest_dir.join(p))
+            .collect::<HashSet<PathBuf>>();
+
+        let walked = get_dir_walker(manifest_dir)
+            .map(|x| x.path().to_path_buf())
+            .collect::<HashSet<PathBuf>>();
+
+        assert_eq!(walked, project_files);
     }
 }
