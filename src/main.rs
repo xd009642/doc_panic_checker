@@ -1,5 +1,6 @@
 use crate::ast_walker::AstWalker;
 use crate::dir_walker::get_dir_walker;
+use glob::Pattern;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use structopt::{clap::arg_enum, StructOpt};
@@ -24,12 +25,17 @@ pub struct Config {
     manifest_path: Option<PathBuf>,
     #[structopt(long = "color", default_value = "auto")]
     color: Color,
+    #[structopt(long = "exclude-files")]
+    excluded_files: Vec<Pattern>,
 }
 
-pub fn get_analysis(root: PathBuf) {
+pub fn get_analysis(root: PathBuf, excluded_files: &[Pattern]) {
     info!("Analysing project in {}", root.display());
     for e in get_dir_walker(root.clone()) {
-        analyse_package(e.path(), &root);
+        let relative = e.path().strip_prefix(&root).unwrap();
+        if !excluded_files.iter().any(|x| x.matches_path(&relative)) {
+            analyse_package(e.path(), &root);
+        }
     }
 }
 
@@ -42,7 +48,10 @@ fn analyse_package(path: &Path, root: &Path) {
             if let Ok(walker) = AstWalker::new(path.to_path_buf()) {
                 let bad_panics = walker.process();
                 if !bad_panics.is_empty() {
-                    warn!("Potentially undocumented panics in {}", path.display());
+                    warn!(
+                        "Potentially undocumented panics in {}",
+                        path.strip_prefix(root).unwrap().display()
+                    );
                 }
                 for panik in &bad_panics {
                     println!("\t{}", panik);
@@ -101,6 +110,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|x| x.parent().map(|x| x.to_path_buf()).unwrap_or_default())
         .unwrap_or_default();
 
-    get_analysis(root);
+    get_analysis(root, &config.excluded_files);
     Ok(())
 }
