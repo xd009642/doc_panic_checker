@@ -7,6 +7,9 @@
 This is a quick tool I wrote to find public methods or functions which could
 panic and where that panic hasn't been documented. 
 
+There's also now a clippy lint for this, so I'd recommend you use clippy. It's
+smarter about the expressions and this is still hacky in places!
+
 ## Usage
 
 ```
